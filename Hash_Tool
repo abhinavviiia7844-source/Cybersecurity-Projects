@@ -1,0 +1,101 @@
+
+"""
+Hash Identifier + Dictionary Cracker
+-------------------------------------
+
+
+Features:
+1. Identify the likely hash type (MD5, SHA-1, SHA-256) based on length.
+2. Generate a hash of any text you provide (so you can create your own
+   practice hashes).
+3. "Crack" a hash by comparing it against a small sample wordlist of
+   common passwords (a dictionary attack) - showing how quickly weak
+   passwords can be reversed.
+"""
+
+import hashlib
+
+# A small sample wordlist for demonstration.
+# Real dictionary attacks use wordlists with millions of entries.
+SAMPLE_WORDLIST = [
+    "123456", "password", "12345678", "qwerty", "abc123",
+    "111111", "letmein", "admin", "welcome", "monkey",
+    "iloveyou", "football", "dragon", "sunshine", "master"
+]
+
+
+def identify_hash_type(hash_string: str) -> str:
+    """
+    Guess the hash algorithm based on the length of the hex string.
+    This is a common first step in analyzing an unknown hash.
+    """
+    length = len(hash_string.strip())
+    guesses = {
+        32: "MD5",
+        40: "SHA-1",
+        64: "SHA-256",
+        128: "SHA-512",
+    }
+    return guesses.get(length, "Unknown (length doesn't match common algorithms)")
+
+
+def generate_hash(text: str, algorithm: str) -> str:
+    """Generate a hash of the given text using the chosen algorithm."""
+    algorithm = algorithm.lower()
+    encoded = text.encode("utf-8")
+
+    if algorithm == "md5":
+        return hashlib.md5(encoded).hexdigest()
+    elif algorithm == "sha1":
+        return hashlib.sha1(encoded).hexdigest()
+    elif algorithm == "sha256":
+        return hashlib.sha256(encoded).hexdigest()
+    else:
+        raise ValueError("Unsupported algorithm. Choose md5, sha1, or sha256.")
+
+
+def crack_hash(target_hash: str, algorithm: str, wordlist: list) -> str:
+    """
+    Try every word in the wordlist, hash it, and see if it matches
+    the target hash. Returns the matching word, or None if not found.
+    """
+    for word in wordlist:
+        if generate_hash(word, algorithm) == target_hash.lower():
+            return word
+    return None
+
+
+def main():
+    print("=== Hash Identifier + Dictionary Cracker ===")
+    print("1. Identify a hash type")
+    print("2. Generate a hash from text")
+    print("3. Crack a hash using the sample wordlist")
+    choice = input("Choose an option (1/2/3): ").strip()
+
+    if choice == "1":
+        hash_string = input("Enter the hash: ").strip()
+        print(f"\nLikely type: {identify_hash_type(hash_string)}")
+
+    elif choice == "2":
+        text = input("Enter text to hash: ")
+        algorithm = input("Algorithm (md5/sha1/sha256): ").strip().lower()
+        print(f"\n{algorithm.upper()} hash: {generate_hash(text, algorithm)}")
+
+    elif choice == "3":
+        target_hash = input("Enter the hash to crack: ").strip()
+        algorithm = input("Algorithm used (md5/sha1/sha256): ").strip().lower()
+
+        print("\nTrying sample wordlist...")
+        found = crack_hash(target_hash, algorithm, SAMPLE_WORDLIST)
+
+        if found:
+            print(f"\nMatch found! The original text was: '{found}'")
+        else:
+            print("\nNo match found in the sample wordlist.")
+            print("(Real dictionary attacks use wordlists with millions of entries.)")
+
+    else:
+        print("Invalid choice.")
+
+if __name__ == "__main__":
+    main()
