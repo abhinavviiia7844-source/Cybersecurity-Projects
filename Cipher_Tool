@@ -1,0 +1,99 @@
+"""
+Caesar & Vigenere Cipher Tool
+------------------------------
+A command-line tool that can encrypt and decrypt text using two classic
+ciphers:
+
+1. Caesar Cipher  - shifts every letter by a fixed number of positions.
+2. Vigenere Cipher - shifts each letter by an amount determined by a
+                      repeating keyword (much stronger than Caesar).
+
+These are historical ciphers, but understanding them is the foundation
+for understanding modern cryptography concepts like keys, shifting,
+and frequency analysis (a common technique used to break weak ciphers).
+"""
+
+import string
+
+ALPHABET = string.ascii_lowercase
+
+
+def caesar_cipher(text: str, shift: int, mode: str = "encrypt") -> str:
+    """
+    Encrypt or decrypt text using a Caesar cipher.
+    'shift' is how many positions each letter moves in the alphabet.
+    Decryption is just encryption with a negative shift.
+    """
+    if mode == "decrypt":
+        shift = -shift
+
+    result = []
+    for char in text:
+        if char.isalpha():
+            base = ord('A') if char.isupper() else ord('a')
+            # Shift the letter, wrapping around using modulo 26
+            shifted = (ord(char) - base + shift) % 26
+            result.append(chr(base + shifted))
+        else:
+            # Leave numbers, spaces, and punctuation unchanged
+            result.append(char)
+    return "".join(result)
+
+
+def vigenere_cipher(text: str, key: str, mode: str = "encrypt") -> str:
+    """
+    Encrypt or decrypt text using a Vigenere cipher.
+    'key' is a word whose letters determine the shift for each
+    corresponding letter of the text (repeating as needed).
+    """
+    key = key.lower()
+    key = "".join(c for c in key if c.isalpha())  # keep letters only
+    if not key:
+        raise ValueError("Key must contain at least one letter.")
+
+    result = []
+    key_index = 0
+
+    for char in text:
+        if char.isalpha():
+            base = ord('A') if char.isupper() else ord('a')
+            key_shift = ord(key[key_index % len(key)]) - ord('a')
+
+            if mode == "decrypt":
+                key_shift = -key_shift
+
+            shifted = (ord(char) - base + key_shift) % 26
+            result.append(chr(base + shifted))
+            key_index += 1  # only advance the key on actual letters
+        else:
+            result.append(char)
+
+    return "".join(result)
+
+
+def main():
+    print("=== Caesar & Vigenere Cipher Tool ===")
+    print("1. Caesar Cipher")
+    print("2. Vigenere Cipher")
+    choice = input("Choose a cipher (1 or 2): ").strip()
+
+    mode = input("Encrypt or decrypt? (e/d): ").strip().lower()
+    mode = "decrypt" if mode == "d" else "encrypt"
+
+    text = input("Enter your text: ")
+
+    if choice == "1":
+        shift = int(input("Enter shift value (e.g. 3): ").strip())
+        output = caesar_cipher(text, shift, mode)
+    elif choice == "2":
+        key = input("Enter keyword (letters only, e.g. LEMON): ").strip()
+        output = vigenere_cipher(text, key, mode)
+    else:
+        print("Invalid choice.")
+        return
+
+    print(f"\nResult: {output}")
+
+
+if __name__ == "__main__":
+    main()
