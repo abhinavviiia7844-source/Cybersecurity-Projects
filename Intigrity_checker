@@ -1,0 +1,124 @@
+"""
+File Integrity Checker
+------------------------
+Monitors a folder and detects if any files have been added, removed,
+or modified since the last check - by comparing SHA-256 hashes.
+
+This is the core idea behind antivirus tools, tamper-detection systems,
+and forensic "file integrity monitoring" (FIM) tools used in real
+security operations.
+
+Usage:
+    python integrity_checker.py baseline <folder_path>
+        -> Creates a baseline snapshot of hashes (saved to baseline.json)
+
+    python integrity_checker.py check <folder_path>
+        -> Compares current folder state against the saved baseline
+"""
+
+import hashlib
+import json
+import os
+import sys
+
+BASELINE_FILE = "baseline.json"
+
+
+def hash_file(filepath: str) -> str:
+    """Compute the SHA-256 hash of a single file's contents."""
+    sha256 = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        # Read in chunks so this works fine even on larger files
+        for chunk in iter(lambda: f.read(8192), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+
+def scan_folder(folder_path: str) -> dict:
+    """Return a dict mapping relative file paths to their SHA-256 hashes."""
+    file_hashes = {}
+    for root, _, files in os.walk(folder_path):
+        for filename in files:
+            full_path = os.path.join(root, filename)
+            relative_path = os.path.relpath(full_path, folder_path)
+            try:
+                file_hashes[relative_path] = hash_file(full_path)
+            except (PermissionError, FileNotFoundError):
+                # Skip files we can't read rather than crashing
+                continue
+    return file_hashes
+
+
+def create_baseline(folder_path: str):
+    """Scan the folder and save the results as the trusted baseline."""
+    print(f"Scanning '{folder_path}' and creating baseline...")
+    file_hashes = scan_folder(folder_path)
+
+    with open(BASELINE_FILE, "w") as f:
+        json.dump(file_hashes, f, indent=2)
+
+    print(f"Baseline created with {len(file_hashes)} files. Saved to {BASELINE_FILE}.")
+
+
+def check_integrity(folder_path: str):
+    """Compare the current folder state against the saved baseline."""
+    if not os.path.exists(BASELINE_FILE):
+        print("No baseline found. Run 'baseline' first.")
+        return
+
+    with open(BASELINE_FILE, "r") as f:
+        baseline_hashes = json.load(f)
+
+    current_hashes = scan_folder(folder_path)
+
+    baseline_files = set(baseline_hashes.keys())
+    current_files = set(current_hashes.keys())
+
+    added = current_files - baseline_files
+    removed = baseline_files - current_files
+    unchanged_candidates = baseline_files & current_files
+    modified = {
+        f for f in unchanged_candidates
+        if baseline_hashes[f] != current_hashes[f]
+    }
+
+    print(f"\nIntegrity check results for '{folder_path}':\n")
+
+    if added:
+        print("Files ADDED:")
+        for f in sorted(added):
+            print(f"  + {f}")
+    if removed:
+        print("Files REMOVED:")
+        for f in sorted(removed):
+            print(f"  - {f}")
+    if modified:
+        print("Files MODIFIED:")
+        for f in sorted(modified):
+            print(f"  * {f}")
+
+    if not (added or removed or modified):
+        print("No changes detected. All files match the baseline.")
+
+
+def main():
+    if len(sys.argv) != 3 or sys.argv[1] not in ("baseline", "check"):
+        print("Usage:")
+        print("  python integrity_checker.py baseline <folder_path>")
+        print("  python integrity_checker.py check <folder_path>")
+        return
+
+    command, folder_path = sys.argv[1], sys.argv[2]
+
+    if not os.path.isdir(folder_path):
+        print(f"Error: '{folder_path}' is not a valid folder.")
+        return
+
+    if command == "baseline":
+        create_baseline(folder_path)
+    elif command == "check":
+        check_integrity(folder_path)
+
+
+if __name__ == "__main__":
+    main()
